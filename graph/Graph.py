@@ -34,8 +34,8 @@ class Graph:
 
     def __add_edges_to_adj(self):
         for edge in self.edges:
-            self.adj[edge.node1].append(edge.node2)
-            self.adj[edge.node2].append(edge.node1)
+            self.adj[edge.node1].append(edge)
+            self.adj[edge.node2].append(edge)
 
     def __repr__(self):
         return repr(vars(self))

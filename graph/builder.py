@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Tuple
-from .Graph import Node, Edge
+from .graph import Node, Edge
 import csv
 
 
