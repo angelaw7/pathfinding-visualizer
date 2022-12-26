@@ -20,9 +20,15 @@ class Edge:
 
 
 class Graph:
-    def __init__(self, nodes: dict[str, Node], edges: list[Edge]):
+    def __init__(
+        self,
+        nodes: dict[str, Node],
+        edges: list[Edge],
+        lines: dict[int, tuple],
+    ):
         self.nodes = nodes
         self.edges = edges
+        self.lines = lines
         self.adj = {}
 
         self.__add_nodes_to_adj()

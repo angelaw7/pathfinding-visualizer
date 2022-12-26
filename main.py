@@ -4,15 +4,19 @@ from tkinter import ttk
 
 from graph.builder import LondonGraphBuilder
 from graph.graph import Graph
-from pathfinders.pathfinders import DijkstrasAlgorithm, AStarAlgorithm
+from pathfinders.pathfinders import DijkstrasAlgorithm
 
 graph_builder = LondonGraphBuilder(
     "_dataset/london.stations.csv",
     "_dataset/london.connections.csv",
     "_dataset/london.lines.csv",
 )
-graph_stations, graph_connections = graph_builder.build_components()
-graph = Graph(graph_stations, graph_connections)
+(
+    graph_stations,
+    graph_connections,
+    graph_lines,
+) = graph_builder.build_components()
+graph = Graph(graph_stations, graph_connections, graph_lines)
 
 
 dijkstras = DijkstrasAlgorithm(graph)
@@ -23,13 +27,8 @@ WIDTH = 1200
 
 
 DODGER_BLUE = "#3399FF"
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
 GREY = "#808080"
 MAGENTA = "#99004C"
-PINK = (255, 0, 127)
-
-RADIUS = 4
 
 
 # Create an instance of tkinter frame
@@ -65,16 +64,12 @@ def find_path(from_station, to_station):
     dijkstras.find_path(int(from_station), int(to_station))
 
 
-to_draw = []
-lines = []
-
-
-def create_circle(x, y, radius, width=0, colour=DODGER_BLUE):
+def create_circle(x, y, radius, width=0, colour=DODGER_BLUE, tags=None):
     x0 = x - radius
     x1 = x + radius
     y0 = y - radius
     y1 = y + radius
-    return c.create_oval(x0, y0, x1, y1, width=width, fill=colour)
+    return c.create_oval(x0, y0, x1, y1, width=width, fill=colour, tags=tags)
 
 
 # connections between stations
@@ -89,36 +84,28 @@ for node in graph.nodes.values():
     create_circle(node.get_pos()[0], node.get_pos()[1], 3)
 
 
-things_added = []
-
-
-def loop():
-    global coord, things_added
+def run_pathfinder():
+    global coord
 
     # next value visited using path finder
     try:
         coords, val = next(coord)
-        to_draw.append(coords)
-        lines.append(graph.adj[val])
-    except:
-        print("?")
+    except Exception:
         return
 
-    for item in lines:
-        for edge in item:
-            a = graph.nodes[edge.node1].get_pos()
-            b = graph.nodes[edge.node2].get_pos()
-            thing = c.create_line(
-                a[0], a[1], b[0], b[1], fill=MAGENTA, width=2
-            )
-            things_added.append(thing)
+    # draw edges relaxed
+    for edge in graph.adj[val]:
+        a = graph.nodes[edge.node1].get_pos()
+        b = graph.nodes[edge.node2].get_pos()
+        c.create_line(
+            a[0], a[1], b[0], b[1], fill=MAGENTA, width=2, tags="tmp"
+        )
 
-    win.after(500, None)
-    for item in to_draw:
-        thing = create_circle(item[0], item[1], 4, colour=MAGENTA)
-        things_added.append(thing)
+    # draw node visited
+    create_circle(coords[0], coords[1], 4, colour=MAGENTA, tags="tmp")
 
-    win.after(500, loop)
+    # delay before checking next node
+    win.after(500, run_pathfinder)
 
 
 from_var = tk.StringVar()
@@ -135,13 +122,11 @@ to_station.place(relx=0.8, rely=0.25)
 
 
 def start_path_find():
-    print(from_var.get())
-    print(to_var.get())
+    global coord
+    c.delete("tmp")
     find_path(from_var.get(), to_var.get())
-    global coord, things_added
     coord = path_generator()
-    c.delete(things_added)
-    loop()
+    run_pathfinder()
 
 
 button = tk.Button(win, text="Find path", command=start_path_find)
@@ -150,24 +135,48 @@ button.place(relx=0.7, rely=0.3)
 # slider current value
 current_value = tk.IntVar()
 
+line_data = {line: [] for line in range(1, 14)}
+
+for edge in graph.edges:
+    line_data[edge.line].append(edge)
+
 
 def get_current_value():
     return current_value.get()
 
 
+new_things = []
+
+
 def slider_changed(event):
-    value_label.configure(text=get_current_value())
+    global new_things
+
+    val = get_current_value()
+    value_label.configure(text=val)
+    for thing in new_things:
+        c.delete(thing)
+
+    if val == 0:
+        return
+
+    for edge in line_data[int(val)]:
+        a = graph.nodes[edge.node1].get_pos()
+        b = graph.nodes[edge.node2].get_pos()
+        colour = graph.lines[int(val)][1]
+        thing = c.create_line(
+            a[0], a[1], b[0], b[1], fill=f"#{colour}", width=4
+        )
+        new_things.append(thing)
 
 
 # label for the slider
 slider_label = ttk.Label(win, text="Line (1-13):")
-
 slider_label.place(relx=0.7, rely=0.4)
 
 #  slider
 slider = ttk.Scale(
     win,
-    from_=1,
+    from_=0,
     to=13,
     orient="horizontal",
     command=slider_changed,

@@ -8,10 +8,11 @@ class iGraphBuilder(ABC):
     def __init__(self):
         self.nodes = {}
         self.edges = []
+        self.lines = {}
 
     @abstractmethod
     def build_components(self) -> Tuple[dict[str, Node], list[Edge]]:
-        return self.nodes, self.edges
+        return self.nodes, self.edges, self.lines
 
 
 class LondonGraphBuilder(iGraphBuilder):
@@ -54,8 +55,17 @@ class LondonGraphBuilder(iGraphBuilder):
                 edge = Edge(station1_id, station2_id, **connection)
                 self.edges.append(edge)
 
+    def __read_line_data(self):
+        with open(self.lines_file) as file:
+            lines = csv.DictReader(file)
+
+            for line in lines:
+                line_number = int(line["line"])
+                self.lines[line_number] = (line["name"], line["colour"])
+
     def build_components(self) -> Tuple[dict[str, Node], list[Edge]]:
         self.__read_station_data()
         self.__read_connection_data()
+        self.__read_line_data()
 
         return super().build_components()
