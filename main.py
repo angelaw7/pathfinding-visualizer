@@ -29,6 +29,7 @@ WIDTH = 1200
 DODGER_BLUE = "#3399FF"
 GREY = "#808080"
 MAGENTA = "#99004C"
+ORANGE = "#FF9933"
 
 
 # Create an instance of tkinter frame
@@ -43,6 +44,11 @@ c.pack()
 
 
 def path_generator():
+    for val in dijkstras.nodes_visited:
+        node = graph.nodes[int(val)]
+        yield node.get_pos(), int(val)
+    global colour
+    colour = ORANGE
     for val in dijkstras.shortest_path:
         node = graph.nodes[int(val)]
         yield node.get_pos(), int(val)
@@ -85,7 +91,7 @@ for node in graph.nodes.values():
 
 
 def run_pathfinder():
-    global coord
+    global coord, colour
 
     # next value visited using path finder
     try:
@@ -97,15 +103,13 @@ def run_pathfinder():
     for edge in graph.adj[val]:
         a = graph.nodes[edge.node1].get_pos()
         b = graph.nodes[edge.node2].get_pos()
-        c.create_line(
-            a[0], a[1], b[0], b[1], fill=MAGENTA, width=2, tags="tmp"
-        )
+        c.create_line(a[0], a[1], b[0], b[1], fill=colour, width=2, tags="tmp")
 
     # draw node visited
-    create_circle(coords[0], coords[1], 4, colour=MAGENTA, tags="tmp")
+    create_circle(coords[0], coords[1], 4, colour=colour, tags="tmp")
 
     # delay before checking next node
-    win.after(500, run_pathfinder)
+    win.after(200, run_pathfinder)
 
 
 from_var = tk.StringVar()
@@ -122,7 +126,8 @@ to_station.place(relx=0.8, rely=0.25)
 
 
 def start_path_find():
-    global coord
+    global coord, colour
+    colour = MAGENTA
     c.delete("tmp")
     find_path(from_var.get(), to_var.get())
     coord = path_generator()
