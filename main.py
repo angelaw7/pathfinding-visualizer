@@ -3,7 +3,11 @@ from tkinter import ttk
 
 from graph.builder import LondonGraphBuilder
 from graph.graph import Graph
-from pathfinders.pathfinders import DijkstrasAlgorithm
+from pathfinders.pathfinders import (
+    DijkstrasAlgorithm,
+    AStarAlgorithm,
+    iPathFinder,
+)
 
 graph_builder = LondonGraphBuilder(
     "_dataset/london.stations.csv",
@@ -18,7 +22,17 @@ graph_builder = LondonGraphBuilder(
 graph = Graph(graph_stations, graph_connections, graph_lines)
 
 
-dijkstras = DijkstrasAlgorithm(graph)
+sp_algorithm: iPathFinder = DijkstrasAlgorithm(graph)
+
+
+def select_sp_algorithm():
+    global sp_algorithm
+    if sp_algorithm_selection.get() == 1:
+        print("now using dijkstras")
+        sp_algorithm = DijkstrasAlgorithm(graph)
+    elif sp_algorithm_selection.get() == 2:
+        print("now using astars")
+        sp_algorithm = AStarAlgorithm(graph)
 
 
 HEIGHT = 800
@@ -31,13 +45,11 @@ MAGENTA = "#99004C"
 ORANGE = "#FF9933"
 
 
-# Create an instance of tkinter frame
+# init tkinter window
 win = tk.Tk()
-
-# Define the geometry of window
 win.geometry(f"{WIDTH}x{HEIGHT}")
 
-# Create a canvas object
+# init tk canvas
 c = tk.Canvas(win, width=1200, height=800)
 c.pack()
 
@@ -47,12 +59,12 @@ path = []
 def path_generator():
     global path
 
-    for val in dijkstras.nodes_visited:
+    for val in sp_algorithm.nodes_visited:
         node = graph.nodes[int(val)]
         yield node.get_pos(), int(val)
     global colour
     colour = ORANGE
-    for val in dijkstras.shortest_path:
+    for val in sp_algorithm.shortest_path:
         node = graph.nodes[int(val)]
         path.append(str(val))
         yield node.get_pos(), int(val)
@@ -71,7 +83,7 @@ convert_coords()
 
 
 def find_path(from_station, to_station):
-    dijkstras.find_path(int(from_station), int(to_station))
+    sp_algorithm.find_path(int(from_station), int(to_station))
 
 
 def create_circle(x, y, radius, width=0, colour=DODGER_BLUE, tags=None):
@@ -95,15 +107,18 @@ for node in graph.nodes.values():
 
 
 def run_pathfinder():
-    global coord, colour
+    global coord, colour, reset_pressed
 
     # next value visited using path finder
     try:
         coords, val = next(coord)
+        if reset_pressed:
+            return
     except Exception:
         global path
         route = " -> ".join(path)
         txt.config(text=f"Route: {route}")
+        sp_time_taken.config(text=f"Trip time: {sp_algorithm.total_time}")
         return
 
     # draw edges relaxed
@@ -143,15 +158,22 @@ def start_path_find():
     find_path(from_var.get(), to_var.get())
     coord = path_generator()
     txt.config(text="Route: calculating...")
+    sp_time_taken.config(text="Trip time: calculating...")
     run_pathfinder()
 
 
+reset_pressed = False
+
+
 def reset():
+    global reset_pressed
+    reset_pressed = True
     from_station.delete(0, tk.END)
     to_station.delete(0, tk.END)
     from_station_label.config(text="")
     to_station_label.config(text="")
     txt.config(text="")
+    sp_time_taken.config(text="")
     c.delete("tmp")
 
 
@@ -161,8 +183,11 @@ find_path_button.place(relx=0.7, rely=0.3)
 reset_button = tk.Button(win, text="Reset", command=reset)
 reset_button.place(relx=0.8, rely=0.3)
 
+sp_time_taken = tk.Label(win, text="")
+sp_time_taken.place(relx=0.7, rely=0.7)
+
 txt = tk.Label(win, text="", wraplength=300)
-txt.place(relx=0.7, rely=0.7)
+txt.place(relx=0.7, rely=0.75)
 
 from_station_label = tk.Label(text="")
 from_station_label.place(relx=0.7, rely=0.6)
@@ -230,6 +255,26 @@ current_value_label.place(relx=0.7, rely=0.5)
 # value label
 value_label = ttk.Label(win, text=get_current_value())
 value_label.place(relx=0.8, rely=0.5)
+
+
+sp_algorithm_selection = tk.IntVar(value=1)
+select_dijkstras = tk.Radiobutton(
+    win,
+    text="Dijkstra's",
+    variable=sp_algorithm_selection,
+    value=1,
+    command=select_sp_algorithm,
+)
+select_dijkstras.place(relx=0.7, rely=0.1)
+
+select_astar = tk.Radiobutton(
+    win,
+    text="A-Star",
+    variable=sp_algorithm_selection,
+    value=2,
+    command=select_sp_algorithm,
+)
+select_astar.place(relx=0.7, rely=0.15)
 
 
 win.mainloop()
