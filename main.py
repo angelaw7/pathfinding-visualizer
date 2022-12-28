@@ -1,4 +1,3 @@
-# Import the library
 import tkinter as tk
 from tkinter import ttk
 
@@ -42,8 +41,12 @@ win.geometry(f"{WIDTH}x{HEIGHT}")
 c = tk.Canvas(win, width=1200, height=800)
 c.pack()
 
+path = []
+
 
 def path_generator():
+    global path
+
     for val in dijkstras.nodes_visited:
         node = graph.nodes[int(val)]
         yield node.get_pos(), int(val)
@@ -51,6 +54,7 @@ def path_generator():
     colour = ORANGE
     for val in dijkstras.shortest_path:
         node = graph.nodes[int(val)]
+        path.append(str(val))
         yield node.get_pos(), int(val)
 
 
@@ -97,6 +101,9 @@ def run_pathfinder():
     try:
         coords, val = next(coord)
     except Exception:
+        global path
+        route = " -> ".join(path)
+        txt.config(text=f"Route: {route}")
         return
 
     # draw edges relaxed
@@ -109,7 +116,7 @@ def run_pathfinder():
     create_circle(coords[0], coords[1], 4, colour=colour, tags="tmp")
 
     # delay before checking next node
-    win.after(200, run_pathfinder)
+    win.after(100, run_pathfinder)
 
 
 from_var = tk.StringVar()
@@ -126,16 +133,42 @@ to_station.place(relx=0.8, rely=0.25)
 
 
 def start_path_find():
-    global coord, colour
+    global coord, colour, txt
+
+    from_station_label.config(text=f"Start: \t station {from_var.get()}")
+    to_station_label.config(text=f"End: \t station {to_var.get()}")
+
     colour = MAGENTA
     c.delete("tmp")
     find_path(from_var.get(), to_var.get())
     coord = path_generator()
+    txt.config(text="Route: calculating...")
     run_pathfinder()
 
 
-button = tk.Button(win, text="Find path", command=start_path_find)
-button.place(relx=0.7, rely=0.3)
+def reset():
+    from_station.delete(0, tk.END)
+    to_station.delete(0, tk.END)
+    from_station_label.config(text="")
+    to_station_label.config(text="")
+    txt.config(text="")
+    c.delete("tmp")
+
+
+find_path_button = tk.Button(win, text="Find path", command=start_path_find)
+find_path_button.place(relx=0.7, rely=0.3)
+
+reset_button = tk.Button(win, text="Reset", command=reset)
+reset_button.place(relx=0.8, rely=0.3)
+
+txt = tk.Label(win, text="", wraplength=300)
+txt.place(relx=0.7, rely=0.7)
+
+from_station_label = tk.Label(text="")
+from_station_label.place(relx=0.7, rely=0.6)
+
+to_station_label = tk.Label(text="")
+to_station_label.place(relx=0.7, rely=0.65)
 
 # slider current value
 current_value = tk.IntVar()
@@ -191,7 +224,7 @@ slider = ttk.Scale(
 slider.place(relx=0.7, rely=0.45)
 
 # current value label
-current_value_label = ttk.Label(win, text="Current Value:")
+current_value_label = ttk.Label(win, text="Viewing line:")
 current_value_label.place(relx=0.7, rely=0.5)
 
 # value label

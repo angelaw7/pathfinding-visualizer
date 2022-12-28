@@ -27,6 +27,7 @@ class iPathFinder(ABC):
         self.start = start
         self.dist_to[start] = 0
         self.pq.put((0, start))
+        self.nodes_visited = []
 
         return self._find_path()
 
@@ -34,10 +35,12 @@ class iPathFinder(ABC):
 
         while not (self.pq.empty()):
             _, node = self.pq.get()
+            self.nodes_visited.append(node)
             self._relax(node)
 
             if node == self.end:
                 self.found_end = True
+                break
 
         self._format_solution(self.print_solution)
         return self.shortest_path
