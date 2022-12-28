@@ -9,6 +9,7 @@ from pathfinders.pathfinders import (
     iPathFinder,
 )
 
+
 graph_builder = LondonGraphBuilder(
     "_dataset/london.stations.csv",
     "_dataset/london.connections.csv",
@@ -204,17 +205,13 @@ for edge in graph.edges:
     line_data[edge.line].append(edge)
 
 
-def get_current_value():
-    return current_value.get()
-
-
 new_things = []
 
 
 def slider_changed(event):
     global new_things
 
-    val = get_current_value()
+    val = current_value.get()
     value_label.configure(text=val)
     for thing in new_things:
         c.delete(thing)
@@ -246,17 +243,14 @@ slider = ttk.Scale(
     variable=current_value,
 )
 
-slider.place(relx=0.7, rely=0.45)
-
-# current value label
-current_value_label = ttk.Label(win, text="Viewing line:")
-current_value_label.place(relx=0.7, rely=0.5)
+slider.place(relx=0.775, rely=0.4)
 
 # value label
-value_label = ttk.Label(win, text=get_current_value())
-value_label.place(relx=0.8, rely=0.5)
+value_label = ttk.Label(win, text=current_value.get())
+value_label.place(relx=0.875, rely=0.4)
 
-
+sp_algorithm_selection_label = tk.Label(win, text="Shortest path algorithm:")
+sp_algorithm_selection_label.place(relx=0.7, rely=0.075)
 sp_algorithm_selection = tk.IntVar(value=1)
 select_dijkstras = tk.Radiobutton(
     win,
@@ -274,7 +268,7 @@ select_astar = tk.Radiobutton(
     value=2,
     command=select_sp_algorithm,
 )
-select_astar.place(relx=0.7, rely=0.15)
+select_astar.place(relx=0.7, rely=0.125)
 
 
 win.mainloop()
