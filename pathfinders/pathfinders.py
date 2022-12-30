@@ -1,5 +1,7 @@
 from graph.graph import Graph
 from abc import ABC, abstractmethod
+from collections import deque
+from graph.graph import Edge
 import queue as Q
 import sys
 
@@ -50,12 +52,7 @@ class iPathFinder(ABC):
 
         for edge in edges_connected_to_node:
 
-            if edge.node1 == node:
-                adjacent_node = edge.node2
-            else:
-                adjacent_node = edge.node1
-            adjacent_node = adjacent_node
-
+            adjacent_node = self._get_other_node(edge, node)
             weight_of_edge = edge.time
 
             if (
@@ -72,6 +69,11 @@ class iPathFinder(ABC):
 
                 self.pq.put((priority, adjacent_node))
 
+    def _get_other_node(self, edge: Edge, this_node: int) -> int:
+        if edge.node1 == this_node:
+            return edge.node2
+        return edge.node1
+
     @abstractmethod
     def _get_priority(self, adjacent_node, node):
         pass
@@ -87,10 +89,7 @@ class iPathFinder(ABC):
         edge_route = []
 
         while edge != "":
-            if int(edge.node1) == prev_node:
-                prev_node = int(edge.node2)
-            else:
-                prev_node = int(edge.node1)
+            prev_node = self._get_other_node(edge, prev_node)
             edge_route.append(edge)
             edge = self.edge_to[prev_node]
             route.append(prev_node)
@@ -160,3 +159,35 @@ class AStarAlgorithm(iPathFinder):
             + (float(node1y) - float(node2y)) ** 2
         ) ** 0.5
         return heuristic
+
+
+class BFSAlgorithm(iPathFinder):
+    def _find_path(self):
+        self.q = deque([self.start])
+        self.visited = [False] * (len(self.nodes) + 2)
+        while self.q:
+            print(self.q)
+            node = self.q.popleft()
+            self.nodes_visited.append(node)
+
+            if node == self.end:
+                break
+            for edge in self.adj[node]:
+                neighbour = self._get_other_node(edge, node)
+                print(edge, neighbour)
+                if not self.visited[neighbour]:
+                    print("adding", neighbour)
+                    self.q.append(neighbour)
+                    self.visited[node] = True
+
+                    self.edge_to[neighbour] = edge
+                    self.dist_to[neighbour] = self.dist_to[node] + edge.time
+        super()._format_solution(False)
+        self.total_time = self.dist_to[self.end]
+        return self.shortest_path
+
+    def _get_heuristic(self, adjacent_node, node):
+        return 0
+
+    def _get_priority(self, adjacent_node, node):
+        return 0

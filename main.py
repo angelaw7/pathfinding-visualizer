@@ -6,6 +6,7 @@ from graph.graph import Graph
 from pathfinders.pathfinders import (
     DijkstrasAlgorithm,
     AStarAlgorithm,
+    BFSAlgorithm,
     iPathFinder,
 )
 
@@ -79,6 +80,7 @@ class GUI:
         # init tkinter window
         self.win = tk.Tk()
         self.win.geometry(f"{self.WIDTH}x{self.HEIGHT}")
+        self.win.title("Graph Visualizer")
 
         # init tk canvas
         self.c = tk.Canvas(self.win, width=self.WIDTH, height=self.HEIGHT)
@@ -111,6 +113,16 @@ class GUI:
             command=self.__select_sp_algorithm,
         )
         self.select_astar.place(relx=self.OPT_W, rely=0.125)
+
+        # shortest path algorithm - select BFS option
+        self.select_dijkstras = tk.Radiobutton(
+            self.win,
+            text="BFS",
+            variable=self.sp_algorithm_selection,
+            value=3,
+            command=self.__select_sp_algorithm,
+        )
+        self.select_dijkstras.place(relx=self.OPT_W, rely=0.15)
 
         # from station input --------------------------------------------------
         self.from_var = tk.StringVar()
@@ -188,6 +200,9 @@ class GUI:
             self.line_data[edge.line].append(edge)
 
     def __init_graph_UI(self):
+        title = tk.Label(text="London Subway Network")
+        title.place(relx=0.025, rely=0.025)
+
         # connections between stations
         for edge in self.graph.edges:
             a = self.graph.nodes[edge.node1].get_pos()
@@ -220,6 +235,10 @@ class GUI:
         # select astar
         elif self.sp_algorithm_selection.get() == 2:
             self.sp_algorithm = AStarAlgorithm(self.graph)
+
+        # select BFS
+        elif self.sp_algorithm_selection.get() == 3:
+            self.sp_algorithm = BFSAlgorithm(self.graph)
 
     def __start_path_find(self):
         # label for to and from station labels
