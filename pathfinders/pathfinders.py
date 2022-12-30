@@ -22,7 +22,7 @@ class iPathFinder(ABC):
         self.print_solution = print_solution
 
     def find_path(self, start: int, end: int):
-        self.shortest_path = []
+        self.path = []
         self.edge_to = [""] * (len(self.nodes) + 2)
         self.dist_to = [sys.maxsize] * (len(self.nodes) + 2)
         self.end = end
@@ -45,7 +45,7 @@ class iPathFinder(ABC):
                 break
 
         self._format_solution(self.print_solution)
-        return self.shortest_path
+        return self.path
 
     def _relax(self, node: int):
         edges_connected_to_node = self.adj[node]
@@ -96,14 +96,15 @@ class iPathFinder(ABC):
 
         route.reverse()
         edge_route.reverse()
-        self.shortest_path = list(map(lambda edge: str(edge), route))
+        self.edge_route = edge_route
+        self.path = list(map(lambda edge: str(edge), route))
         self.total_time = self.dist_to[self.end]
 
         if print_solution:
             print(
                 f"Start: \t\t Station {self.start}\nDestination: \t Station {self.end}\n"  # noqa
             )
-            print("Route: " + " -> ".join(self.shortest_path))
+            print("Route: " + " -> ".join(self.path))
             print("Take ", end="")
             station_from = route[0]
             for i in range(1, len(route) - 1):
@@ -165,26 +166,30 @@ class BFSAlgorithm(iPathFinder):
     def _find_path(self):
         self.q = deque([self.start])
         self.visited = [False] * (len(self.nodes) + 2)
+        self.visited[self.start] = True
+
+        # deque for which node to visit
         while self.q:
-            print(self.q)
             node = self.q.popleft()
             self.nodes_visited.append(node)
 
-            if node == self.end:
+            if node == self.end:  # found destination node
                 break
+
+            # check all neighbours of node
             for edge in self.adj[node]:
                 neighbour = self._get_other_node(edge, node)
-                print(edge, neighbour)
-                if not self.visited[neighbour]:
-                    print("adding", neighbour)
-                    self.q.append(neighbour)
-                    self.visited[node] = True
 
+                # add neighbour to queue if not already seen
+                if not self.visited[neighbour]:
+                    self.q.append(neighbour)
+                    self.visited[neighbour] = True
                     self.edge_to[neighbour] = edge
                     self.dist_to[neighbour] = self.dist_to[node] + edge.time
+
+        # format solution and return path
         super()._format_solution(False)
-        self.total_time = self.dist_to[self.end]
-        return self.shortest_path
+        return self.path
 
     def _get_heuristic(self, adjacent_node, node):
         return 0

@@ -16,6 +16,7 @@ class Colour:
     GREY = "#808080"
     MAGENTA = "#99004C"
     ORANGE = "#FF9933"
+    RED = "#FF0000"
 
 
 def create_circle(
@@ -41,7 +42,7 @@ class GUI:
         self.HEIGHT = 800
         self.WIDTH = 1200
         self.OPT_W = 0.7
-        self.delay = 100
+        self.delay = 1
 
         self.sp = []  # nodes in shortest path
 
@@ -64,7 +65,7 @@ class GUI:
         ) = graph_builder.build_components()
         self.graph = Graph(graph_stations, graph_connections, graph_lines)
 
-        self.sp_algorithm: iPathFinder = DijkstrasAlgorithm(self.graph)
+        self.path_algo: iPathFinder = DijkstrasAlgorithm(self.graph)
 
     def __convert_coordinates(self):
         """scale original coordinates to map onto UI frame"""
@@ -92,15 +93,15 @@ class GUI:
             self.win, text="Shortest path algorithm:"
         )
         self.sp_algorithm_selection_label.place(relx=self.OPT_W, rely=0.075)
-        self.sp_algorithm_selection = tk.IntVar(value=1)
+        self.path_algo_selection = tk.IntVar(value=1)
 
         # shortest path algorithm - select dijkstras option
         self.select_dijkstras = tk.Radiobutton(
             self.win,
             text="Dijkstra's",
-            variable=self.sp_algorithm_selection,
+            variable=self.path_algo_selection,
             value=1,
-            command=self.__select_sp_algorithm,
+            command=self.__select_path_algo,
         )
         self.select_dijkstras.place(relx=self.OPT_W, rely=0.1)
 
@@ -108,9 +109,9 @@ class GUI:
         self.select_astar = tk.Radiobutton(
             self.win,
             text="A-Star",
-            variable=self.sp_algorithm_selection,
+            variable=self.path_algo_selection,
             value=2,
-            command=self.__select_sp_algorithm,
+            command=self.__select_path_algo,
         )
         self.select_astar.place(relx=self.OPT_W, rely=0.125)
 
@@ -118,9 +119,9 @@ class GUI:
         self.select_dijkstras = tk.Radiobutton(
             self.win,
             text="BFS",
-            variable=self.sp_algorithm_selection,
+            variable=self.path_algo_selection,
             value=3,
-            command=self.__select_sp_algorithm,
+            command=self.__select_path_algo,
         )
         self.select_dijkstras.place(relx=self.OPT_W, rely=0.15)
 
@@ -152,14 +153,20 @@ class GUI:
         )
         self.reset_button.place(relx=self.OPT_W + 0.1, rely=0.3)
 
+        # show lines button ---------------------------------------------------
+        self.show_lines_button = tk.Button(
+            self.win, text="Show lines", command=self.__show_lines
+        )
+        self.show_lines_button.place(relx=self.OPT_W + 0.15, rely=0.3)
+
         # lines selection slider init -----------------------------------------
         self.lines_selection = tk.IntVar()
         self.__init_line_data()
         self.stations_in_line = []
 
         # lines selection slider label
-        self.slider_label = ttk.Label(self.win, text="Line (1-13):")
-        self.slider_label.place(relx=self.OPT_W, rely=0.4)
+        self.slider_label = ttk.Label(self.win, text="View line (1-13):")
+        self.slider_label.place(relx=self.OPT_W - 0.25, rely=0.08)
 
         # lines selection slider
         self.lines_slider = ttk.Scale(
@@ -170,29 +177,39 @@ class GUI:
             command=self.__slider_changed,
             variable=self.lines_selection,
         )
-        self.lines_slider.place(relx=self.OPT_W + 0.075, rely=0.4)
+        self.lines_slider.place(relx=self.OPT_W - 0.25 + 0.08, rely=0.08)
 
         # lines selection value
         self.lines_value_label = ttk.Label(
             self.win, text=self.lines_selection.get()
         )
-        self.lines_value_label.place(relx=self.OPT_W + 0.175, rely=0.4)
+        self.lines_value_label.place(relx=self.OPT_W - 0.25 + 0.18, rely=0.08)
 
-        # time taken label ----------------------------------------------------
-        self.sp_time_taken_label = tk.Label(self.win, text="")
-        self.sp_time_taken_label.place(relx=self.OPT_W, rely=0.7)
-
-        # route label ---------------------------------------------------------
-        self.route_label = tk.Label(self.win, text="", wraplength=300)
-        self.route_label.place(relx=self.OPT_W, rely=0.75)
+        # error label --------------------------------------------------
+        self.error_label = tk.Label(text="", fg=Colour.RED)
+        self.error_label.place(relx=self.OPT_W, rely=0.35)
 
         # from station label --------------------------------------------------
         self.from_station_label = tk.Label(text="")
-        self.from_station_label.place(relx=self.OPT_W, rely=0.6)
+        self.from_station_label.place(relx=self.OPT_W, rely=0.4)
 
         # to station label ----------------------------------------------------
         self.to_station_label = tk.Label(text="")
-        self.to_station_label.place(relx=self.OPT_W, rely=0.65)
+        self.to_station_label.place(relx=self.OPT_W, rely=0.425)
+
+        # time taken label ----------------------------------------------------
+        self.sp_time_taken_label = tk.Label(self.win, text="")
+        self.sp_time_taken_label.place(relx=self.OPT_W, rely=0.475)
+
+        # route label ---------------------------------------------------------
+        self.route_label = tk.Label(self.win, text="", wraplength=300)
+        self.route_label.place(relx=self.OPT_W, rely=0.525)
+
+        # lines label ---------------------------------------------------------
+        self.lines_label = tk.Label(
+            self.win, text="", wraplength=300, justify=tk.LEFT
+        )
+        self.lines_label.place(relx=self.OPT_W, rely=0.6)
 
     def __init_line_data(self):
         self.line_data = {line: [] for line in range(1, 14)}
@@ -215,32 +232,45 @@ class GUI:
 
     def __path_generator(self):
         # show nodes that algorithm visits in order
-        for val in self.sp_algorithm.nodes_visited:
+        self.tag = "tmp"
+        for val in self.path_algo.nodes_visited:
             node = self.graph.nodes[int(val)]
             yield node.get_pos(), int(val)
 
-        self.colour = Colour.ORANGE  # swap colour to highlight shortest path
-
         # show nodes in shortest path
-        for val in self.sp_algorithm.shortest_path:
+        self.colour = Colour.ORANGE  # swap colour to highlight shortest path
+        for val in self.path_algo.path:
             node = self.graph.nodes[int(val)]
             self.sp.append(str(val))
             yield node.get_pos(), int(val)
 
-    def __select_sp_algorithm(self):
+    def __select_path_algo(self):
         # select dijkstras
-        if self.sp_algorithm_selection.get() == 1:
-            self.sp_algorithm = DijkstrasAlgorithm(self.graph)
+        if self.path_algo_selection.get() == 1:
+            self.path_algo = DijkstrasAlgorithm(self.graph)
 
         # select astar
-        elif self.sp_algorithm_selection.get() == 2:
-            self.sp_algorithm = AStarAlgorithm(self.graph)
+        elif self.path_algo_selection.get() == 2:
+            self.path_algo = AStarAlgorithm(self.graph)
 
         # select BFS
-        elif self.sp_algorithm_selection.get() == 3:
-            self.sp_algorithm = BFSAlgorithm(self.graph)
+        elif self.path_algo_selection.get() == 3:
+            self.path_algo = BFSAlgorithm(self.graph)
 
     def __start_path_find(self):
+        try:
+            from_val = int(self.from_var.get())
+            to_val = int(self.to_var.get())
+            if from_val < 1 or from_val > 303 or to_val < 1 or to_val > 303:
+                raise ValueError
+        except ValueError:
+            self.error_label.config(
+                text="Error: station inputs must be integers between 1-303"
+            )
+            return
+
+        self.__reset(entry=False)
+
         # label for to and from station labels
         self.from_station_label.config(
             text=f"Start: \t station {self.from_var.get()}"
@@ -254,7 +284,7 @@ class GUI:
         self.c.delete("tmp")
 
         # run path finding algorithm
-        self.sp_algorithm.find_path(
+        self.path_algo.find_path(
             int(self.from_var.get()), int(self.to_var.get())
         )
 
@@ -277,9 +307,10 @@ class GUI:
         except Exception:
             route = " -> ".join(self.sp)
             self.route_label.config(text=f"Route: {route}")
+            self.__format_lines()
             self.sp = []
             self.sp_time_taken_label.config(
-                text=f"Trip time: {self.sp_algorithm.total_time}"
+                text=f"Trip time: {self.path_algo.total_time}"
             )
             return
 
@@ -288,26 +319,71 @@ class GUI:
             a = self.graph.nodes[edge.node1].get_pos()
             b = self.graph.nodes[edge.node2].get_pos()
             self.c.create_line(
-                a[0], a[1], b[0], b[1], fill=self.colour, width=2, tags="tmp"
+                a[0],
+                a[1],
+                b[0],
+                b[1],
+                fill=self.colour,
+                width=2,
+                tags=self.tag,
             )
 
         # draw node visited
         create_circle(
-            self.c, coords[0], coords[1], 4, colour=self.colour, tags="tmp"
+            self.c, coords[0], coords[1], 4, colour=self.colour, tags=self.tag
         )
 
         # delay before checking next node
         self.win.after(self.delay, self.__draw_path)
 
-    def __reset(self):
+    def __reset(self, entry=True):
         self.reset_pressed = True
-        self.from_entry.delete(0, tk.END)
-        self.to_entry.delete(0, tk.END)
+        if entry:
+            self.from_entry.delete(0, tk.END)
+            self.to_entry.delete(0, tk.END)
+        self.error_label.config(text="")
         self.from_station_label.config(text="")
         self.to_station_label.config(text="")
         self.route_label.config(text="")
         self.sp_time_taken_label.config(text="")
+        self.lines_label.config(text="")
         self.c.delete("tmp")
+        self.reset_pressed = False
+
+    def __show_lines(self):
+        self.c.delete("tmp")
+        for edge in self.path_algo.edge_route:
+            a = self.graph.nodes[edge.node1].get_pos()
+            b = self.graph.nodes[edge.node2].get_pos()
+            colour = self.graph.lines[edge.line][1]
+            self.c.create_line(
+                a[0], a[1], b[0], b[1], fill=f"#{colour}", tags="path", width=4
+            )
+
+    def __format_lines(self):
+        line_label = ""
+        station_from = self.sp[0]
+
+        for i in range(1, len(self.sp) - 1):
+            if (
+                self.path_algo.edge_route[i].line
+                != self.path_algo.edge_route[i - 1].line
+            ):
+                station_to = self.sp[i]
+                conn = self.path_algo.edge_route[i - 1]
+                line_label += (
+                    f"    - line {conn.line} from station"
+                    + f" {station_from} to station {station_to}\n"
+                )
+                station_from = station_to
+
+        if self.path_algo.edge_route[-2] != self.path_algo.edge_route[-1]:
+            line_label += (
+                f"    - line {self.path_algo.edge_route[-1].line} "
+                + f"from station {station_from} to station {self.sp[-1]}\n"
+            )
+
+        self.lines_label.config(text=f"Line:\n{line_label}")
 
     def __slider_changed(self, event):
 
