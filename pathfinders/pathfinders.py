@@ -10,7 +10,7 @@ class iPathFinder(ABC):
     def __init__(
         self,
         graph: Graph,
-        print_solution: bool = True,
+        print_solution: bool = False,
     ):
         self.nodes = graph.nodes
         self.adj = graph.adj

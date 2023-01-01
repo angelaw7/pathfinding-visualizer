@@ -9,31 +9,9 @@ from pathfinders.pathfinders import (
     BFSAlgorithm,
     iPathFinder,
 )
-
-
-class Colour:
-    DODGER_BLUE = "#3399FF"
-    GREY = "#808080"
-    MAGENTA = "#99004C"
-    ORANGE = "#FF9933"
-    RED = "#FF0000"
-
-
-def create_circle(
-    c: tk.Canvas,
-    x: float,
-    y: float,
-    radius: float,
-    width: float = 0,
-    colour: Colour = Colour.DODGER_BLUE,
-    tags: str = None,
-):
-    """helper function for creating a circle on Tkinter canvas"""
-    x0 = x - radius
-    x1 = x + radius
-    y0 = y - radius
-    y1 = y + radius
-    return c.create_oval(x0, y0, x1, y1, width=width, fill=colour, tags=tags)
+from planners.planners import SubwayPatrolDP
+from styles.colours import Colour
+from styles.customtk import Button, create_circle
 
 
 class GUI:
@@ -81,7 +59,7 @@ class GUI:
         # init tkinter window
         self.win = tk.Tk()
         self.win.geometry(f"{self.WIDTH}x{self.HEIGHT}")
-        self.win.title("Graph Visualizer")
+        self.win.title("Pathfinding Visualizer")
 
         # init tk canvas
         self.c = tk.Canvas(self.win, width=self.WIDTH, height=self.HEIGHT)
@@ -129,35 +107,42 @@ class GUI:
         self.from_var = tk.StringVar()
         self.from_label = tk.Label(text="Start station:")
         self.from_label.place(relx=self.OPT_W, rely=0.2)
-        self.from_entry = tk.Entry(self.win, textvariable=self.from_var, bd=5)
-        self.from_entry.place(relx=self.OPT_W + 0.1, rely=0.2)
+        self.from_entry = tk.Entry(self.win, textvariable=self.from_var)
+        self.from_entry.place(relx=self.OPT_W + 0.08, rely=0.2)
 
         # to station input ----------------------------------------------------
         self.to_var = tk.StringVar()
         self.to_label = tk.Label(text="End station:")
         self.to_label.place(relx=self.OPT_W, rely=0.25)
-        self.to_entry = tk.Entry(self.win, textvariable=self.to_var, bd=5)
-        self.to_entry.place(relx=self.OPT_W + 0.1, rely=0.25)
+        self.to_entry = tk.Entry(self.win, textvariable=self.to_var)
+        self.to_entry.place(relx=self.OPT_W + 0.08, rely=0.25)
 
         self.reset_pressed = False
 
         # find path button ----------------------------------------------------
-        self.find_path_button = tk.Button(
-            self.win, text="Find path", command=self.__start_path_find
+        self.find_path_button = Button(
+            self.win,
+            text="Find path",
+            command=self.__start_path_find,
         )
         self.find_path_button.place(relx=self.OPT_W, rely=0.3)
 
         # reset button --------------------------------------------------------
-        self.reset_button = tk.Button(
-            self.win, text="Reset", command=self.__reset
+        self.reset_button = Button(
+            self.win,
+            text="Reset",
+            command=self.__reset,
         )
-        self.reset_button.place(relx=self.OPT_W + 0.1, rely=0.3)
+        self.reset_button.place(relx=self.OPT_W + 0.075, rely=0.3)
 
         # show lines button ---------------------------------------------------
-        self.show_lines_button = tk.Button(
-            self.win, text="Show lines", command=self.__show_lines
+        self.show_lines_button = Button(
+            self.win,
+            text="Show lines",
+            command=self.__show_lines,
         )
-        self.show_lines_button.place(relx=self.OPT_W + 0.15, rely=0.3)
+        self.show_lines_button.place(relx=self.OPT_W + 0.125, rely=0.3)
+        self.show_lines = False
 
         # lines selection slider init -----------------------------------------
         self.lines_selection = tk.IntVar()
@@ -282,6 +267,7 @@ class GUI:
         # remove previously drawn lines
         self.colour = Colour.MAGENTA
         self.c.delete("tmp")
+        self.c.delete("lines")
 
         # run path finding algorithm
         self.path_algo.find_path(
@@ -308,7 +294,6 @@ class GUI:
             route = " -> ".join(self.sp)
             self.route_label.config(text=f"Route: {route}")
             self.__format_lines()
-            self.sp = []
             self.sp_time_taken_label.config(
                 text=f"Trip time: {self.path_algo.total_time}"
             )
@@ -338,6 +323,7 @@ class GUI:
 
     def __reset(self, entry=True):
         self.reset_pressed = True
+        self.sp = []
         if entry:
             self.from_entry.delete(0, tk.END)
             self.to_entry.delete(0, tk.END)
@@ -348,17 +334,33 @@ class GUI:
         self.sp_time_taken_label.config(text="")
         self.lines_label.config(text="")
         self.c.delete("tmp")
+        self.c.delete("lines")
         self.reset_pressed = False
 
     def __show_lines(self):
-        self.c.delete("tmp")
-        for edge in self.path_algo.edge_route:
-            a = self.graph.nodes[edge.node1].get_pos()
-            b = self.graph.nodes[edge.node2].get_pos()
-            colour = self.graph.lines[edge.line][1]
-            self.c.create_line(
-                a[0], a[1], b[0], b[1], fill=f"#{colour}", tags="path", width=4
-            )
+        if not self.sp:
+            self.error_label.config(text="Error: no path selected")
+            return
+        if not self.show_lines:
+            for edge in self.path_algo.edge_route:
+                a = self.graph.nodes[edge.node1].get_pos()
+                b = self.graph.nodes[edge.node2].get_pos()
+                colour = self.graph.lines[edge.line][1]
+                self.c.create_line(
+                    a[0],
+                    a[1],
+                    b[0],
+                    b[1],
+                    fill=f"#{colour}",
+                    tags="lines",
+                    width=4,
+                )
+            self.show_lines_button.config(text="Hide lines")
+            self.show_lines = True
+        else:
+            self.c.delete("lines")
+            self.show_lines = False
+            self.show_lines_button.config(text="Show lines")
 
     def __format_lines(self):
         line_label = ""
@@ -406,6 +408,9 @@ class GUI:
             self.stations_in_line.append(connection)
 
     def run(self):
+        sb = SubwayPatrolDP(self.graph)
+        sb.find_min_path([1, 2, 3])
+        sb._print_solution()
         self.win.mainloop()
 
 
