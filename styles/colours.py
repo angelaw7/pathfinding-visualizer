@@ -5,3 +5,4 @@ class Colour:
     ORANGE = "#FF9933"
     RED = "#FF0000"
     WHITE = "#FFF"
+    YELLOW = "#FFFF00"

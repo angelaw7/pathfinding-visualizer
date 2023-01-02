@@ -9,7 +9,7 @@ from pathfinders.pathfinders import (
     BFSAlgorithm,
     iPathFinder,
 )
-from planners.planners import SubwayPatrolDP
+from planners.planners import SubwayPatrolPlanning
 from styles.colours import Colour
 from styles.customtk import Button, create_circle
 
@@ -66,14 +66,14 @@ class GUI:
         self.c.pack()
 
     def __init_elements_UI(self):
-        # shortest path algorithm selection -----------------------------------
-        self.sp_algorithm_selection_label = tk.Label(
-            self.win, text="Shortest path algorithm:"
+        # path algorithm selection -----------------------------------
+        self.path_algo_selection_label = tk.Label(
+            self.win, text="Pathfinding algorithm:"
         )
-        self.sp_algorithm_selection_label.place(relx=self.OPT_W, rely=0.075)
+        self.path_algo_selection_label.place(relx=self.OPT_W, rely=0.075)
         self.path_algo_selection = tk.IntVar(value=1)
 
-        # shortest path algorithm - select dijkstras option
+        # pathfinding algorithm - select dijkstras option
         self.select_dijkstras = tk.Radiobutton(
             self.win,
             text="Dijkstra's",
@@ -83,7 +83,7 @@ class GUI:
         )
         self.select_dijkstras.place(relx=self.OPT_W, rely=0.1)
 
-        # shortest path algorithm - select astar option
+        # pathfinding algorithm - select astar option
         self.select_astar = tk.Radiobutton(
             self.win,
             text="A-Star",
@@ -93,22 +93,32 @@ class GUI:
         )
         self.select_astar.place(relx=self.OPT_W, rely=0.125)
 
-        # shortest path algorithm - select BFS option
-        self.select_dijkstras = tk.Radiobutton(
+        # pathfinding algorithm - select BFS option
+        self.selectBFS = tk.Radiobutton(
             self.win,
             text="BFS",
             variable=self.path_algo_selection,
             value=3,
             command=self.__select_path_algo,
         )
-        self.select_dijkstras.place(relx=self.OPT_W, rely=0.15)
+        self.selectBFS.place(relx=self.OPT_W, rely=0.15)
+
+        # pathfinding algorithm - select BFS option
+        self.selectTSP = tk.Radiobutton(
+            self.win,
+            text="Traveling salesman",
+            variable=self.path_algo_selection,
+            value=4,
+            command=self.__select_path_algo,
+        )
+        self.selectTSP.place(relx=self.OPT_W, rely=0.175)
 
         # from station input --------------------------------------------------
         self.from_var = tk.StringVar()
         self.from_label = tk.Label(text="Start station:")
-        self.from_label.place(relx=self.OPT_W, rely=0.2)
+        self.from_label.place(relx=self.OPT_W, rely=0.225)
         self.from_entry = tk.Entry(self.win, textvariable=self.from_var)
-        self.from_entry.place(relx=self.OPT_W + 0.08, rely=0.2)
+        self.from_entry.place(relx=self.OPT_W + 0.08, rely=0.225)
 
         # to station input ----------------------------------------------------
         self.to_var = tk.StringVar()
@@ -116,6 +126,12 @@ class GUI:
         self.to_label.place(relx=self.OPT_W, rely=0.25)
         self.to_entry = tk.Entry(self.win, textvariable=self.to_var)
         self.to_entry.place(relx=self.OPT_W + 0.08, rely=0.25)
+
+        self.stations_subset = tk.StringVar()
+        self.stations_subset_label = tk.Label(text="Stations:")
+        self.stations_subset_entry = tk.Entry(
+            self.win, textvariable=self.stations_subset
+        )
 
         self.reset_pressed = False
 
@@ -171,7 +187,7 @@ class GUI:
         self.lines_value_label.place(relx=self.OPT_W - 0.25 + 0.18, rely=0.08)
 
         # error label --------------------------------------------------
-        self.error_label = tk.Label(text="", fg=Colour.RED)
+        self.error_label = tk.Label(text="", fg=Colour.RED, wraplength=300)
         self.error_label.place(relx=self.OPT_W, rely=0.35)
 
         # from station label --------------------------------------------------
@@ -224,57 +240,100 @@ class GUI:
 
         # show nodes in shortest path
         self.colour = Colour.ORANGE  # swap colour to highlight shortest path
+        prev = None
         for val in self.path_algo.path:
-            node = self.graph.nodes[int(val)]
-            self.sp.append(str(val))
-            yield node.get_pos(), int(val)
+            if str(val) != prev:
+                self.sp.append(str(val))
+                prev = str(val)
+                node = self.graph.nodes[int(val)]
+                yield node.get_pos(), int(val)
 
     def __select_path_algo(self):
+        option = self.path_algo_selection.get()
+
+        if option < 4:
+            self.stations_subset_label.place_forget()
+            self.stations_subset_entry.place_forget()
+            self.from_label.place(relx=self.OPT_W, rely=0.225)
+            self.from_entry.place(relx=self.OPT_W + 0.08, rely=0.225)
+            self.to_label.place(relx=self.OPT_W, rely=0.25)
+            self.to_entry.place(relx=self.OPT_W + 0.08, rely=0.25)
+
         # select dijkstras
-        if self.path_algo_selection.get() == 1:
+        if option == 1:
             self.path_algo = DijkstrasAlgorithm(self.graph)
 
         # select astar
-        elif self.path_algo_selection.get() == 2:
+        elif option == 2:
             self.path_algo = AStarAlgorithm(self.graph)
 
         # select BFS
-        elif self.path_algo_selection.get() == 3:
+        elif option == 3:
             self.path_algo = BFSAlgorithm(self.graph)
 
-    def __start_path_find(self):
-        try:
-            from_val = int(self.from_var.get())
-            to_val = int(self.to_var.get())
-            if from_val < 1 or from_val > 303 or to_val < 1 or to_val > 303:
-                raise ValueError
-        except ValueError:
-            self.error_label.config(
-                text="Error: station inputs must be integers between 1-303"
+        # select traveling salesman
+        elif option == 4:
+            self.path_algo = SubwayPatrolPlanning(self.graph)
+            self.stations_subset_label.place(relx=self.OPT_W, rely=0.225)
+            self.stations_subset_entry.place(
+                relx=self.OPT_W + 0.08, rely=0.225
             )
-            return
+            self.to_entry.place_forget()
+            self.to_label.place_forget()
+            self.from_entry.place_forget()
+            self.from_label.place_forget()
+
+    def __start_path_find(self):
+        if isinstance(self.path_algo, iPathFinder):
+            try:
+                from_val = int(self.from_var.get())
+                to_val = int(self.to_var.get())
+                if (
+                    from_val < 1
+                    or from_val > 303
+                    or to_val < 1
+                    or to_val > 303
+                ):
+                    raise ValueError
+            except ValueError:
+                self.error_label.config(
+                    text="Error: station inputs must be integers between 1-303"
+                )
+                return
+        else:
+            try:
+                stations = list(
+                    map(int, self.stations_subset_entry.get().split(","))
+                )
+                if min(stations) < 0 or max(stations) > 303:
+                    raise ValueError
+            except ValueError:
+                self.error_label.config(
+                    text="Error: invalid subset; "
+                    + "stations must be between 1-303 and separated by ','"
+                )
+                return
 
         self.__reset(entry=False)
 
-        # label for to and from station labels
-        self.from_station_label.config(
-            text=f"Start: \t station {self.from_var.get()}"
-        )
-        self.to_station_label.config(
-            text=f"End: \t station {self.to_var.get()}"
-        )
+        if isinstance(self.path_algo, iPathFinder):
+            # label for to and from station labels
+            self.from_station_label.config(
+                text=f"Start: \t station {self.from_var.get()}"
+            )
+            self.to_station_label.config(
+                text=f"End: \t station {self.to_var.get()}"
+            )
+            self.path_algo.find_path(
+                int(self.from_var.get()), int(self.to_var.get())
+            )
+        else:
+            self.from_station_label.config(
+                text=f"Stations to cover: \t {stations}"
+            )
+            self.path_algo.find_path(stations)
 
-        # remove previously drawn lines
-        self.colour = Colour.MAGENTA
-        self.c.delete("tmp")
-        self.c.delete("lines")
-
-        # run path finding algorithm
-        self.path_algo.find_path(
-            int(self.from_var.get()), int(self.to_var.get())
-        )
-
-        # create instance of sp generator that generates nodes visited
+        # create instance of generator that generates nodes visited
         self.coord_generator = self.__path_generator()
 
         # labels for route + trip time
@@ -291,12 +350,7 @@ class GUI:
             if self.reset_pressed:
                 return
         except Exception:
-            route = " -> ".join(self.sp)
-            self.route_label.config(text=f"Route: {route}")
-            self.__format_lines()
-            self.sp_time_taken_label.config(
-                text=f"Trip time: {self.path_algo.total_time}"
-            )
+            self.__finalize()
             return
 
         # draw edges relaxed
@@ -321,6 +375,42 @@ class GUI:
         # delay before checking next node
         self.win.after(self.delay, self.__draw_path)
 
+    def __finalize(self):
+        if isinstance(self.path_algo, iPathFinder):
+            self.lines_label.place(relx=self.OPT_W, rely=0.6)
+            self.__format_lines()
+            route = " -> ".join(self.sp)
+        else:
+            self.lines_label.place_forget()
+            route = ""
+            for i in range(len(self.path_algo.total_path)):
+                route += f"    - {' -> '.join(self.path_algo.total_path[i])}\n"
+
+        self.route_label.config(text=f"Route: \n{route}")
+        self.sp_time_taken_label.config(
+            text=f"Trip time: {self.path_algo.total_time}"
+        )
+
+        if isinstance(self.path_algo, iPathFinder):
+            start = self.from_var.get()
+            end = self.to_var.get()
+            nodes = [start, end]
+        else:
+            nodes = list(map(int, self.stations_subset.get().split(",")))
+
+        for node in nodes:
+            pos = self.graph.nodes[int(node)].get_pos()
+            create_circle(
+                self.c,
+                pos[0],
+                pos[1],
+                12,
+                width=2,
+                tags="tmp",
+                colour=Colour.YELLOW,
+            )
+            self.c.create_text(pos[0], pos[1], text=node, tags="tmp")
+
     def __reset(self, entry=True):
         self.reset_pressed = True
         self.sp = []
@@ -330,11 +420,12 @@ class GUI:
         self.error_label.config(text="")
         self.from_station_label.config(text="")
         self.to_station_label.config(text="")
-        self.route_label.config(text="")
+        self.route_label.config(text="", justify=tk.LEFT)
         self.sp_time_taken_label.config(text="")
         self.lines_label.config(text="")
         self.c.delete("tmp")
         self.c.delete("lines")
+        self.colour = Colour.MAGENTA
         self.reset_pressed = False
 
     def __show_lines(self):
@@ -367,6 +458,7 @@ class GUI:
         station_from = self.sp[0]
 
         for i in range(1, len(self.sp) - 1):
+
             if (
                 self.path_algo.edge_route[i].line
                 != self.path_algo.edge_route[i - 1].line
@@ -408,9 +500,6 @@ class GUI:
             self.stations_in_line.append(connection)
 
     def run(self):
-        sb = SubwayPatrolDP(self.graph)
-        sb.find_min_path([1, 2, 3])
-        sb._print_solution()
         self.win.mainloop()
 
 
