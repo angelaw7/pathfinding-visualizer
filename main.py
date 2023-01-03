@@ -43,13 +43,20 @@ class GUI:
         ) = graph_builder.build_components()
         self.graph = Graph(graph_stations, graph_connections, graph_lines)
 
-        self.path_algo: iPathFinder = DijkstrasAlgorithm(self.graph)
+        self.path_algo: iPathFinder | SubwayPatrolPlanning = (
+            DijkstrasAlgorithm(self.graph)
+        )
+        self.algorithms = {
+            1: DijkstrasAlgorithm(self.graph),
+            2: AStarAlgorithm(self.graph),
+            3: BFSAlgorithm(self.graph),
+            4: SubwayPatrolPlanning(self.graph),
+        }
 
     def __convert_coordinates(self):
         """scale original coordinates to map onto UI frame"""
         for node in self.graph.nodes.values():
             pos = node.get_pos()
-
             long = ((pos[0] + 0.6) * self.HEIGHT) + 30
             lat = ((pos[1] - 51.4) * 3 * self.HEIGHT) + 30
             self.graph.nodes[node.id].latitude = lat
@@ -133,8 +140,6 @@ class GUI:
             self.win, textvariable=self.stations_subset
         )
 
-        self.reset_pressed = False
-
         # find path button ----------------------------------------------------
         self.find_path_button = Button(
             self.win,
@@ -150,6 +155,7 @@ class GUI:
             command=self.__reset,
         )
         self.reset_button.place(relx=self.OPT_W + 0.075, rely=0.3)
+        self.reset_pressed = False
 
         # show lines button ---------------------------------------------------
         self.show_lines_button = Button(
@@ -175,7 +181,7 @@ class GUI:
             from_=0,
             to=13,
             orient="horizontal",
-            command=self.__slider_changed,
+            command=self.__lines_changed,
             variable=self.lines_selection,
         )
         self.lines_slider.place(relx=self.OPT_W - 0.25 + 0.08, rely=0.08)
@@ -186,7 +192,36 @@ class GUI:
         )
         self.lines_value_label.place(relx=self.OPT_W - 0.25 + 0.18, rely=0.08)
 
-        # error label --------------------------------------------------
+        # delay selection slider label ----------------------------------------
+        self.delay_values = {
+            0: {"text": "slow", "val": 500},
+            1: {"text": "normal", "val": 100},
+            2: {"text": "fast", "val": 50},
+            3: {"text": "very fast", "val": 10},
+        }
+        self.delay_selection = tk.IntVar()
+        self.delay_label = ttk.Label(self.win, text="Speed:")
+        self.delay_label.place(relx=self.OPT_W - 0.25, rely=0.125)
+
+        # delay selection value
+        self.delay_value_label = ttk.Label(
+            self.win, text=self.delay_selection.get()
+        )
+        self.delay_value_label.place(relx=self.OPT_W - 0.25 + 0.18, rely=0.125)
+
+        # delay selection slider
+        self.delay_slider = ttk.Scale(
+            self.win,
+            from_=0,
+            to=3,
+            orient="horizontal",
+            command=self.__delay_changed,
+            variable=self.delay_selection,
+        )
+        self.delay_slider.place(relx=self.OPT_W - 0.25 + 0.08, rely=0.125)
+        self.delay_slider.set(2)
+
+        # error label --------------------------------------------------------
         self.error_label = tk.Label(text="", fg=Colour.RED, wraplength=300)
         self.error_label.place(relx=self.OPT_W, rely=0.35)
 
@@ -251,28 +286,14 @@ class GUI:
     def __select_path_algo(self):
         option = self.path_algo_selection.get()
 
-        if option < 4:
+        if option < 4:  # source-destination
             self.stations_subset_label.place_forget()
             self.stations_subset_entry.place_forget()
             self.from_label.place(relx=self.OPT_W, rely=0.225)
             self.from_entry.place(relx=self.OPT_W + 0.08, rely=0.225)
             self.to_label.place(relx=self.OPT_W, rely=0.25)
             self.to_entry.place(relx=self.OPT_W + 0.08, rely=0.25)
-
-        # select dijkstras
-        if option == 1:
-            self.path_algo = DijkstrasAlgorithm(self.graph)
-
-        # select astar
-        elif option == 2:
-            self.path_algo = AStarAlgorithm(self.graph)
-
-        # select BFS
-        elif option == 3:
-            self.path_algo = BFSAlgorithm(self.graph)
-
-        # select traveling salesman
-        elif option == 4:
+        else:  # subset of nodes
             self.path_algo = SubwayPatrolPlanning(self.graph)
             self.stations_subset_label.place(relx=self.OPT_W, rely=0.225)
             self.stations_subset_entry.place(
@@ -282,6 +303,8 @@ class GUI:
             self.to_label.place_forget()
             self.from_entry.place_forget()
             self.from_label.place_forget()
+
+        self.path_algo = self.algorithms[option]
 
     def __start_path_find(self):
         if isinstance(self.path_algo, iPathFinder):
@@ -479,8 +502,7 @@ class GUI:
 
         self.lines_label.config(text=f"Line:\n{line_label}")
 
-    def __slider_changed(self, event):
-
+    def __lines_changed(self, event):
         val = self.lines_selection.get()
         self.lines_value_label.configure(text=val)
 
@@ -498,6 +520,11 @@ class GUI:
                 a[0], a[1], b[0], b[1], fill=f"#{colour}", width=4
             )
             self.stations_in_line.append(connection)
+
+    def __delay_changed(self, event):
+        delay = self.delay_values[self.delay_selection.get()]
+        self.delay_value_label.configure(text=delay["text"])
+        self.delay = delay["val"]
 
     def run(self):
         self.win.mainloop()
